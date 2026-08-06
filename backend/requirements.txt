@@ -1,0 +1,25 @@
+# ============================================
+# Karyawan AI — Python Dependencies
+# ============================================
+
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+
+# Database
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+
+# Task Queue
+celery[redis]==5.4.0
+redis==5.1.0
+
+# AI Engine
+google-generativeai==0.8.0
+
+# Authentication
+PyJWT==2.8.0
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.9.0

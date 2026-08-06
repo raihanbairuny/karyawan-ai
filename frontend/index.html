@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Karyawan AI — Monitor dan kendalikan 9 AI Employee dari mana saja">
+    <meta name="theme-color" content="#0a0a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Karyawan AI — Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- ============================================ -->
+    <!-- HEADER -->
+    <!-- ============================================ -->
+    <header class="header" id="header">
+        <div class="header-left">
+            <div class="logo">
+                <span class="logo-icon">🤖</span>
+                <h1>Karyawan AI</h1>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="clock" id="clock">--:--</span>
+            <div class="status-dot" id="connection-status" title="Koneksi ke server"></div>
+        </div>
+    </header>
+
+    <!-- ============================================ -->
+    <!-- STATS BAR -->
+    <!-- ============================================ -->
+    <section class="stats-bar" id="stats-bar">
+        <div class="stat-card stat-working">
+            <span class="stat-number" id="stat-working">0</span>
+            <span class="stat-label">Lagi Kerja</span>
+        </div>
+        <div class="stat-card stat-done">
+            <span class="stat-number" id="stat-done">0</span>
+            <span class="stat-label">Beres 24 Jam</span>
+        </div>
+        <div class="stat-card stat-decision">
+            <span class="stat-number" id="stat-decision">0</span>
+            <span class="stat-label">Butuh Lo</span>
+        </div>
+        <div class="stat-card stat-error">
+            <span class="stat-number" id="stat-error">0</span>
+            <span class="stat-label">Error</span>
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SYSTEM HEALTH -->
+    <!-- ============================================ -->
+    <section class="health-panel" id="health-panel">
+        <div class="section-header">
+            <h2 class="section-title">System Health</h2>
+        </div>
+        <div class="health-grid" id="health-grid">
+            <div class="server-loading">Memeriksa metrik server...</div>
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- SERVER STATUS -->
+    <!-- ============================================ -->
+    <section class="server-panel" id="server-panel">
+        <div class="section-header">
+            <h2 class="section-title">Server Status</h2>
+            <button id="refresh-servers-btn" class="icon-btn" title="Refresh Status">🔄</button>
+        </div>
+        <div class="server-grid" id="server-grid">
+            <div class="server-loading">Memeriksa koneksi SSH ke server...</div>
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- COMMAND CENTER -->
+    <!-- ============================================ -->
+    <section class="command-center" id="command-center">
+        <h2 class="section-title">Perintah</h2>
+        <div class="command-form">
+            <div class="command-top">
+                <label class="command-label">ke:</label>
+                <select id="employee-select" class="employee-select">
+                    <option value="">Pilih Karyawan...</option>
+                </select>
+            </div>
+            <div class="command-input-wrap">
+                <textarea
+                    id="command-input"
+                    class="command-input"
+                    placeholder="Ketik perintah..."
+                    rows="2"
+                ></textarea>
+                <button id="send-btn" class="send-btn" title="Kirim">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div id="command-feedback" class="command-feedback hidden"></div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- EMPLOYEE GRID -->
+    <!-- ============================================ -->
+    <section class="employees-section">
+        <h2 class="section-title">Karyawan</h2>
+        <div class="employee-grid" id="employee-grid">
+            <!-- Rendered by JavaScript -->
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- ACTIVITY FEED -->
+    <!-- ============================================ -->
+    <section class="activity-section">
+        <h2 class="section-title">Aktivitas Terbaru</h2>
+        <div class="activity-feed" id="activity-feed">
+            <div class="activity-empty">Belum ada aktivitas</div>
+        </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- TASK DETAIL MODAL -->
+    <!-- ============================================ -->
+    <div class="modal-overlay hidden" id="task-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Detail Task</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-meta" id="modal-meta"></div>
+                <div class="modal-prompt">
+                    <h4>Perintah:</h4>
+                    <p id="modal-prompt-text"></p>
+                </div>
+                <div class="modal-result">
+                    <h4>Hasil:</h4>
+                    <div id="modal-result-text" class="result-content"></div>
+                </div>
+                
+                <!-- Area Konfirmasi -->
+                <div id="modal-confirmation-area" class="modal-confirmation hidden">
+                    <h4>⚠️ Data yang akan terpengaruh:</h4>
+                    <div class="table-responsive" id="modal-affected-data"></div>
+                    <div class="modal-actions">
+                        <button id="btn-cancel-task" class="btn btn-secondary">Batalkan</button>
+                        <button id="btn-confirm-task" class="btn btn-primary">Setujui & Eksekusi</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- EMPLOYEE TASKS MODAL -->
+    <!-- ============================================ -->
+    <div class="modal-overlay hidden" id="employee-modal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 id="emp-modal-title">Riwayat Karyawan</h3>
+                <button class="modal-close" id="emp-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="emp-modal-tasks" class="emp-task-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
