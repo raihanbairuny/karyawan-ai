@@ -19,6 +19,7 @@ def run_ssh_command(ip: str, port: int, command: str) -> tuple[bool, str]:
 
     cmd = [
         "ssh",
+        "-i", "/root/.ssh/karyawan_ai",
         "-p", str(port),
         "-o", "StrictHostKeyChecking=no",
         "-o", "ConnectTimeout=5",
