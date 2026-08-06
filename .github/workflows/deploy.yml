@@ -17,7 +17,7 @@ jobs:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USERNAME }}
         password: ${{ secrets.VPS_PASSWORD }}
-        port: 22
+        port: 55714
         script: |
           cd /root/karyawan-ai
           chmod +x deploy.sh
