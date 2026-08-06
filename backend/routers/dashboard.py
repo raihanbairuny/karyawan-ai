@@ -14,6 +14,17 @@ from routers.auth import get_current_user
 
 router = APIRouter(prefix="/api", tags=["Dashboard"], dependencies=[Depends(get_current_user)])
 
+@router.get("/dashboard_debug")
+async def get_dashboard_debug(db: Session = Depends(get_db)):
+    try:
+        from routers.dashboard import get_dashboard
+        res = await get_dashboard(db)
+        return res
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
+
+
 
 @router.get("/dashboard")
 async def get_dashboard(db: Session = Depends(get_db)):

@@ -58,6 +58,9 @@ def execute_agent_task(self, task_id: str):
             db.commit()
             return {"error": task.error_message}
 
+        import sys
+        import os
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
         from database_tools import get_database_schema, execute_sql_query
         import json
 
