@@ -144,3 +144,33 @@ async def health_check():
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
     }
+
+
+@app.get("/api/debug")
+async def debug_db():
+    db = SessionLocal()
+    try:
+        count = db.query(Employee).count()
+        return {"employee_count": count}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        db.close()
+
+
+@app.post("/api/debug/seed")
+async def debug_seed():
+    db = SessionLocal()
+    try:
+        Base.metadata.create_all(bind=engine)
+        for emp_data in EMPLOYEE_SEED:
+            existing = db.query(Employee).filter(Employee.name == emp_data["name"]).first()
+            if not existing:
+                db.add(Employee(**emp_data))
+        db.commit()
+        return {"status": "seeded", "count": db.query(Employee).count()}
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+    finally:
+        db.close()
