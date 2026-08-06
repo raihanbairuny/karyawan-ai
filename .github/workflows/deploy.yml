@@ -21,6 +21,15 @@ jobs:
         command_timeout: 10m
         script_stop: true
         script: |
+          # Install git jika belum ada
+          which git || apt-get update && apt-get install -y git
+
+          # Clone repo jika belum ada
+          if [ ! -d /root/karyawan-ai/.git ]; then
+            rm -rf /root/karyawan-ai
+            git clone https://github.com/raihanbairuny/karyawan-ai.git /root/karyawan-ai
+          fi
+
           cd /root/karyawan-ai
           git fetch --all
           git reset --hard origin/main
