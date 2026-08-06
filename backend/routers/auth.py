@@ -51,12 +51,15 @@ def verify_password_in_external_db(username: str, plain_password: str) -> bool:
         if row:
             db_password = row[0]
             # Bandingkan hash
-            return hashed_input == db_password
+            if hashed_input == db_password:
+                return True, "Success"
+            else:
+                return False, f"Hash mismatch. DB: {db_password[:5]}... Input: {hashed_input[:5]}..."
             
-        return False
+        return False, "User tidak ditemukan atau is_active false"
     except Exception as e:
         print(f"Auth Error: {e}")
-        return False
+        return False, f"DB Error: {str(e)}"
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -96,12 +99,12 @@ async def login(req: LoginRequest):
         return {"access_token": access_token, "token_type": "bearer"}
         
     # Autentikasi ke database Server 1
-    is_valid = verify_password_in_external_db(req.username, req.password)
+    is_valid, error_msg = verify_password_in_external_db(req.username, req.password)
     
     if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Username atau Password salah!",
+            detail=f"Login Gagal: {error_msg}",
             headers={"WWW-Authenticate": "Bearer"},
         )
         
