@@ -214,12 +214,12 @@ async function fetchHealthMetrics() {
         });
         
         if (grid.innerHTML === '') {
-            grid.innerHTML = '<div class="server-loading">Gagal memuat data metrik.</div>';
+            grid.innerHTML = '<div class="server-loading" style="color:var(--status-warning)">⚠️ Tidak bisa terhubung ke server untuk mengambil metrik. Periksa koneksi SSH.</div>';
         }
     } catch (err) {
         console.error('Health metrics fetch error:', err);
         const grid = document.getElementById('health-grid');
-        grid.innerHTML = '<div class="server-loading" style="color:var(--status-error)">Gagal mengambil metrik server.</div>';
+        grid.innerHTML = '<div class="server-loading" style="color:var(--status-error)">Gagal mengambil metrik server: ' + err.message + '</div>';
     }
 }
 

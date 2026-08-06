@@ -19,20 +19,21 @@ def run_ssh_command(ip: str, port: int, command: str) -> tuple[bool, str]:
 
     cmd = [
         "ssh",
-        "-i", "/root/.ssh/karyawan_ai",
         "-p", str(port),
-        "-o", "StrictHostKeyChecking=no",  # Bypass host key verification
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "ConnectTimeout=5",
+        "-o", "BatchMode=yes",
         f"root@{ip}",
         command
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
             return True, result.stdout.strip()
         else:
             return False, result.stderr.strip()
     except subprocess.TimeoutExpired:
-        return False, "Timeout: Server tidak merespon dalam 15 detik"
+        return False, "Timeout: Server tidak merespon dalam 10 detik"
     except Exception as e:
         return False, str(e)
 
