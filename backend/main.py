@@ -97,6 +97,9 @@ async def lifespan(app: FastAPI):
             if not existing:
                 db.add(Employee(**emp_data))
         db.commit()
+    except Exception as e:
+        print(f"ERROR SEEDING DATABASE: {e}")
+        db.rollback()
     finally:
         db.close()
 
