@@ -98,10 +98,20 @@ def execute_agent_task(self, task_id: str):
             loop += 1
             raw_result = agent.think(conversation_history, context=context, json_mode=True)
             
+            # Strip markdown json block if Gemini hallucinates it
+            raw_result_clean = raw_result.strip()
+            if raw_result_clean.startswith("```json"):
+                raw_result_clean = raw_result_clean[7:]
+            elif raw_result_clean.startswith("```"):
+                raw_result_clean = raw_result_clean[3:]
+            if raw_result_clean.endswith("```"):
+                raw_result_clean = raw_result_clean[:-3]
+            raw_result_clean = raw_result_clean.strip()
+
             try:
-                ai_decision = json.loads(raw_result)
+                ai_decision = json.loads(raw_result_clean)
             except Exception as e:
-                task.result = f"Error parsing AI response: {raw_result}"
+                task.result = f"Error parsing AI response: {raw_result_clean}"
                 task.status = TaskStatus.ERROR
                 break
 
@@ -116,8 +126,8 @@ def execute_agent_task(self, task_id: str):
                 target_db = ai_decision.get("target_db")
                 query = ai_decision.get("sql_query")
                 
-                if not query.upper().lstrip().startswith("SELECT"):
-                    task.result = "AI mencoba melakukan WRITE menggunakan execute_sql (ditolak). Harus propose_write."
+                if not query or not str(query).upper().lstrip().startswith("SELECT"):
+                    task.result = "AI mencoba melakukan WRITE menggunakan execute_sql (ditolak) atau query kosong. Harus propose_write dan sertakan sql_query."
                     task.status = TaskStatus.ERROR
                     break
                     
@@ -128,6 +138,11 @@ def execute_agent_task(self, task_id: str):
                 target_db = ai_decision.get("target_db")
                 query = ai_decision.get("sql_query")
                 select_query = ai_decision.get("select_query")
+                
+                if not query:
+                    task.result = "AI gagal menyertakan sql_query untuk propose_write."
+                    task.status = TaskStatus.ERROR
+                    break
                 
                 # Buat query SELECT untuk melihat data yang akan terdampak
                 affected_rows_res = {"error": "No select_query provided"}

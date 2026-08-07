@@ -10,10 +10,17 @@ from datetime import datetime, date
 from config import settings
 
 
+import uuid
+from decimal import Decimal
+
 class CustomJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, (datetime, date)):
             return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return float(obj)
+        if isinstance(obj, uuid.UUID):
+            return str(obj)
         return super().default(obj)
 
 
