@@ -174,11 +174,11 @@ def execute_agent_task(self, task_id: str):
         db.add(ActivityLog(
             employee_name=task.employee_name,
             action="completed" if task.status == TaskStatus.DONE else "needs_decision",
-            detail=f"Task status: {task.status.value}",
+            detail=f"Task status: {task.status}",
         ))
         db.commit()
 
-        return {"task_id": task_id, "status": task.status.value}
+        return {"task_id": task_id, "status": task.status}
 
     except Exception as e:
         db.rollback()
