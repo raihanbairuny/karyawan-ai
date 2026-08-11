@@ -133,8 +133,8 @@ if [ ! -d ".git" ]; then
     exit 1
 fi
 
-# Reset to main branch to branch off cleanly
-git reset --hard HEAD
+# Simpan perubahan lokal (jika ada) agar tidak hilang (Lebih aman dari reset --hard)
+git stash
 git checkout main || git checkout master || exit 1
 git pull origin HEAD || true
 
