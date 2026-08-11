@@ -560,25 +560,51 @@ async function openTaskModal(taskId) {
     if (task.status === 'needs_decision') {
         confirmArea.classList.remove('hidden');
         
-        // Render affected rows if available
+        // Render affected rows or code diff if available
         if (task.affected_rows_json) {
             try {
-                const rows = JSON.parse(task.affected_rows_json);
-                if (rows.length === 0) {
-                    affectedData.innerHTML = "<p>Tidak ada data yang terpengaruh (0 baris).</p>";
+                const parsed = JSON.parse(task.affected_rows_json);
+                
+                // Cek apakah ini Code Edit (Autocoding)
+                if (parsed && typeof parsed === 'object' && parsed.type === 'code_edit') {
+                    affectedData.innerHTML = `
+                        <div class="code-diff-container" style="display: flex; gap: 10px; text-align: left; overflow: hidden; background: #000; border-radius: 8px; padding: 10px; max-height: 400px;">
+                            <div style="flex: 1; overflow: auto; border-right: 1px solid #333;">
+                                <div style="color: #f87171; font-weight: bold; margin-bottom: 5px; position: sticky; top: 0; background: #000; padding-bottom: 5px;">- OLD: ${escapeHtml(parsed.filepath)}</div>
+                                <pre style="margin: 0; font-size: 0.75rem; color: #ccc;"><code>${escapeHtml(parsed.old_code)}</code></pre>
+                            </div>
+                            <div style="flex: 1; overflow: auto;">
+                                <div style="color: #34d399; font-weight: bold; margin-bottom: 5px; position: sticky; top: 0; background: #000; padding-bottom: 5px;">+ NEW: ${escapeHtml(parsed.filepath)}</div>
+                                <pre style="margin: 0; font-size: 0.75rem; color: #ccc;"><code>${escapeHtml(parsed.new_code)}</code></pre>
+                            </div>
+                        </div>
+                        <p style="margin-top: 10px; font-size: 0.8rem; color: #f87171;">⚠️ Konfirmasi akan membuat branch baru (ai-hotfix) di VPS dan menimpa kode produksi Anda secara live.</p>
+                    `;
                 } else {
-                    const headers = Object.keys(rows[0]);
-                    let tableHTML = '<table class="data-table"><thead><tr>';
-                    headers.forEach(h => tableHTML += `<th>${escapeHtml(h)}</th>`);
-                    tableHTML += '</tr></thead><tbody>';
+                    // Ini adalah DB Write
+                    let rows = [];
+                    if (Array.isArray(parsed)) {
+                        rows = parsed; // Format lama
+                    } else if (parsed && parsed.type === 'db_write') {
+                        rows = parsed.data || []; // Format baru
+                    }
                     
-                    rows.forEach(row => {
-                        tableHTML += '<tr>';
-                        headers.forEach(h => tableHTML += `<td>${escapeHtml(String(row[h]))}</td>`);
-                        tableHTML += '</tr>';
-                    });
-                    tableHTML += '</tbody></table>';
-                    affectedData.innerHTML = tableHTML;
+                    if (rows.length === 0) {
+                        affectedData.innerHTML = "<p>Tidak ada data yang terpengaruh (0 baris).</p>";
+                    } else {
+                        const headers = Object.keys(rows[0]);
+                        let tableHTML = '<table class="data-table"><thead><tr>';
+                        headers.forEach(h => tableHTML += `<th>${escapeHtml(h)}</th>`);
+                        tableHTML += '</tr></thead><tbody>';
+                        
+                        rows.forEach(row => {
+                            tableHTML += '<tr>';
+                            headers.forEach(h => tableHTML += `<td>${escapeHtml(String(row[h]))}</td>`);
+                            tableHTML += '</tr>';
+                        });
+                        tableHTML += '</tbody></table>';
+                        affectedData.innerHTML = tableHTML;
+                    }
                 }
             } catch (e) {
                 affectedData.innerHTML = "<p>Gagal mem-parsing data pratinjau.</p>";

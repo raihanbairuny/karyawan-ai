@@ -62,6 +62,7 @@ def execute_agent_task(self, task_id: str):
         import os
         sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
         from database_tools import get_database_schema, execute_sql_query
+        from ssh_tools import APP_CONFIGS, get_app_logs, read_remote_file
         import json
 
         # Ambil schema untuk context AI
@@ -74,20 +75,35 @@ def execute_agent_task(self, task_id: str):
         if schema_datahandling.get("success"):
             context += f"Database 'datahandling':\n{json.dumps(schema_datahandling['data'], indent=2)}\n\n"
             
-        context += """
-        ATURAN PENGGUNAAN DATABASE:
-        - Anda memiliki akses untuk menjalankan query SQL secara langsung.
-        - Output HARUS selalu berupa JSON murni dengan skema:
-        {
-            "thought": "analisa Anda",
-            "action": "reply" atau "execute_sql" atau "propose_write",
+        context += f"""
+        === DAFTAR APLIKASI SERVER (APP_ID) ===
+        {list(APP_CONFIGS.keys())}
+        
+        === ATURAN PENGGUNAAN ALAT (TOOLS) ===
+        Anda memiliki akses ke Database dan Server VPS secara langsung.
+        Output HARUS selalu berupa JSON murni dengan skema:
+        {{
+            "thought": "Analisa Anda (wajib diisi)",
+            "action": "Pilih salah satu: reply | execute_sql | propose_write | get_server_logs | read_remote_file | propose_code_edit",
+            
+            // Parameter khusus Database (isi jika pakai alat DB):
             "target_db": "timesheet" atau "datahandling" atau null,
             "sql_query": "query SQL Anda" atau null,
-            "select_query": "wajib diisi HANYA jika action=propose_write. Berisi query SELECT untuk melihat data apa yang akan terhapus/terubah",
+            "select_query": "query SELECT khusus untuk action=propose_write untuk melihat data yang akan terhapus/terubah",
+            
+            // Parameter khusus Server DevOps (isi jika pakai alat Server):
+            "app_id": "Pilih salah satu ID dari daftar aplikasi di atas",
+            "lines": 50, // Jumlah baris log untuk get_server_logs
+            "filepath": "Path relatif file (misal: main.py atau src/app.js) untuk read_remote_file & propose_code_edit",
+            "new_code": "Kode penuh baru (pengganti) untuk propose_code_edit",
+            
             "response": "jawaban akhir untuk user (hanya jika action = reply)"
-        }
-        - Jika Anda butuh membaca data, gunakan action "execute_sql" dengan query SELECT.
-        - Jika Anda butuh MENGUBAH data (INSERT/UPDATE/DELETE), gunakan action "propose_write".
+        }}
+        
+        PANDUAN DEVOPS:
+        1. Jika user melaporkan error aplikasi, JANGAN menebak. Langsung gunakan action "get_server_logs" dengan "app_id" yang sesuai.
+        2. Jika dari log Anda menemukan nama file yang bermasalah, gunakan action "read_remote_file" untuk membaca kodenya.
+        3. Jika Anda sudah tahu solusinya, gunakan action "propose_code_edit" untuk memperbaiki kodenya. User akan diminta persetujuan.
         """
 
         max_loops = 3
@@ -151,11 +167,57 @@ def execute_agent_task(self, task_id: str):
                 
                 task.proposed_query = query
                 task.target_db = target_db
-                task.affected_rows_json = json.dumps(affected_rows_res.get("data", []))
+                task.affected_rows_json = json.dumps({"type": "db_write", "data": affected_rows_res.get("data", [])})
                 
                 task.status = TaskStatus.NEEDS_DECISION
                 task.result = f"AI mengusulkan perubahan pada database {target_db}:\n```sql\n{query}\n```\nAlasan: {ai_decision.get('thought')}"
                 break
+                
+            elif action == "get_server_logs":
+                app_id = ai_decision.get("app_id")
+                lines = int(ai_decision.get("lines", 50))
+                res = get_app_logs(app_id, lines)
+                conversation_history += f"\n\nSystem: Log terbaru dari {app_id}:\n{res.get('data')}"
+                
+            elif action == "read_remote_file":
+                app_id = ai_decision.get("app_id")
+                filepath = ai_decision.get("filepath")
+                res = read_remote_file(app_id, filepath)
+                content = res.get('data', '')
+                # Limit length to avoid blowing up context window
+                if len(content) > 10000:
+                    content = content[:10000] + "\n...[TRUNCATED]..."
+                conversation_history += f"\n\nSystem: Isi file {filepath} di {app_id}:\n{content}"
+                
+            elif action == "propose_code_edit":
+                app_id = ai_decision.get("app_id")
+                filepath = ai_decision.get("filepath")
+                new_code = ai_decision.get("new_code")
+                
+                if not app_id or not filepath or not new_code:
+                    task.result = "AI gagal menyertakan parameter lengkap untuk propose_code_edit."
+                    task.status = TaskStatus.ERROR
+                    break
+                    
+                # Ambil kode lama untuk ditampilkan ke user
+                old_code_res = read_remote_file(app_id, filepath)
+                old_code = old_code_res.get("data", "") if old_code_res.get("success") else "File baru / gagal dibaca"
+                
+                task.proposed_query = json.dumps({"filepath": filepath, "new_code": new_code})
+                task.target_db = app_id  # Reuse target_db untuk app_id
+                
+                diff_data = {
+                    "type": "code_edit",
+                    "filepath": filepath,
+                    "old_code": old_code,
+                    "new_code": new_code
+                }
+                task.affected_rows_json = json.dumps(diff_data)
+                
+                task.status = TaskStatus.NEEDS_DECISION
+                task.result = f"AI mengusulkan perbaikan kode (Autocoding) pada aplikasi {app_id}, file `{filepath}`.\nAlasan: {ai_decision.get('thought')}"
+                break
+                
             else:
                 task.result = f"Unknown action: {action}"
                 task.status = TaskStatus.ERROR

@@ -98,30 +98,51 @@ async def confirm_task(task_id: str, db: Session = Depends(get_db)):
     import os
     import json
     
-    # Lakukan Backup CSV terlebih dahulu
+    action_type = "db_write"
     if task.affected_rows_json:
         try:
-            backup_dir = "backups"
-            os.makedirs(backup_dir, exist_ok=True)
-            import time
-            backup_file = os.path.join(backup_dir, f"backup_{task.target_db}_{task_id}_{int(time.time())}.json")
-            with open(backup_file, "w") as f:
-                f.write(task.affected_rows_json)
-        except Exception as e:
-            print(f"Warning: Failed to create backup file: {e}")
+            parsed = json.loads(task.affected_rows_json)
+            if isinstance(parsed, dict) and parsed.get("type") == "code_edit":
+                action_type = "code_edit"
+        except:
+            pass
             
-    # Eksekusi Query
-    res = execute_sql_query(task.target_db, task.proposed_query)
-    
-    if res["success"]:
-        task.status = TaskStatus.DONE
-        task.result += f"\n\n**STATUS: DISETUJUI & DIEKSEKUSI**\nBerhasil mengubah {res['affected_rows']} baris."
+    if action_type == "code_edit":
+        from ssh_tools import apply_git_hotfix
+        payload = json.loads(task.proposed_query)
+        res = apply_git_hotfix(task.target_db, payload["filepath"], payload["new_code"])
+        
+        if res.get("success"):
+            task.status = TaskStatus.DONE
+            task.result += f"\n\n**STATUS: DISETUJUI & DIEKSEKUSI**\nBerhasil memodifikasi kode di VPS.\n```text\n{res['data']}\n```"
+        else:
+            task.status = TaskStatus.ERROR
+            task.result += f"\n\n**STATUS: GAGAL DIEKSEKUSI**\nError SSH: {res.get('data') or res.get('error')}"
     else:
-        task.status = TaskStatus.ERROR
-        task.result += f"\n\n**STATUS: GAGAL DIEKSEKUSI**\nError: {res['error']}"
+        # Lakukan Backup CSV terlebih dahulu (Hanya untuk Database)
+        if task.affected_rows_json:
+            try:
+                backup_dir = "backups"
+                os.makedirs(backup_dir, exist_ok=True)
+                import time
+                backup_file = os.path.join(backup_dir, f"backup_{task.target_db}_{task_id}_{int(time.time())}.json")
+                with open(backup_file, "w") as f:
+                    f.write(task.affected_rows_json)
+            except Exception as e:
+                print(f"Warning: Failed to create backup file: {e}")
+                
+        # Eksekusi Query
+        res = execute_sql_query(task.target_db, task.proposed_query)
+        
+        if res["success"]:
+            task.status = TaskStatus.DONE
+            task.result += f"\n\n**STATUS: DISETUJUI & DIEKSEKUSI**\nBerhasil mengubah {res['affected_rows']} baris."
+        else:
+            task.status = TaskStatus.ERROR
+            task.result += f"\n\n**STATUS: GAGAL DIEKSEKUSI**\nError: {res['error']}"
         
     db.commit()
-    return {"message": "Tindakan berhasil dieksekusi", "success": res["success"]}
+    return {"message": "Tindakan berhasil dieksekusi", "success": res.get("success", False)}
 
 
 @router.post("/command/{task_id}/cancel")
