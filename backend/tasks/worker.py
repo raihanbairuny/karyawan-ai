@@ -103,6 +103,7 @@ def execute_agent_task(self, task_id: str):
         PANDUAN DATABASE:
         1. Jika Anda mencari string (seperti nama karyawan), SELALU gunakan "ILIKE '%nama%'" agar pencarian fleksibel, JANGAN gunakan = 'nama'.
         2. Perhatikan struktur tabel dan join kolom yang benar (contoh: hr_employee dan timesheet_timesheet harus di-join).
+        3. JANGAN PERNAH menggunakan parameter (seperti $1, $2, atau ?). Masukkan nilai secara TERCETAK/LITERAL ke dalam query SQL (contoh: gunakan ILIKE '%Budi%' BUKAN ILIKE $1).
         
         PANDUAN DEVOPS:
         1. Jika user melaporkan error aplikasi, JANGAN menebak. Langsung gunakan action "get_server_logs" dengan "app_id" yang sesuai.
