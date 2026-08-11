@@ -101,7 +101,10 @@ def read_remote_file(app_id: str, filepath: str) -> dict:
     ip = cfg["ip"]
     port = cfg["port"]
     base_path = cfg["path"]
-    
+    # Jika AI mengirimkan path absolut yang mengandung base_path, otomatis potong menjadi relatif
+    if filepath.startswith(base_path):
+        filepath = filepath[len(base_path):].lstrip("/")
+        
     # Path traversal protection basic
     if ".." in filepath or filepath.startswith("/"):
         return {"success": False, "error": "Path harus relatif terhadap root aplikasi dan tidak boleh mengandung '..'"}
@@ -121,7 +124,10 @@ def apply_git_hotfix(app_id: str, filepath: str, new_content: str) -> dict:
     ip = cfg["ip"]
     port = cfg["port"]
     base_path = cfg["path"]
-    
+    # Jika AI mengirimkan path absolut yang mengandung base_path, otomatis potong menjadi relatif
+    if filepath.startswith(base_path):
+        filepath = filepath[len(base_path):].lstrip("/")
+        
     # Base64 encode content to safely pass via SSH echo
     b64_content = base64.b64encode(new_content.encode('utf-8')).decode('utf-8')
     full_path = f"{base_path}/{filepath}"
