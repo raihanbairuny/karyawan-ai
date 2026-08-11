@@ -76,9 +76,12 @@ def get_app_logs(app_id: str, lines: int = 50) -> dict:
     app_type = cfg["type"]
     
     if app_type == "docker":
-        cmd = f"docker ps -qf name=streamsheet | head -n 1 | xargs -I {{}} docker logs --tail {lines} {{}}"
+        container = cfg.get("container_name")
+        if not container:
+            return {"success": False, "error": "Konfigurasi container_name tidak ditemukan untuk docker"}
+        cmd = f"docker logs --tail {lines} {container}"
     elif app_type == "podman":
-        container = cfg["container_name"]
+        container = cfg.get("container_name")
         cmd = f"podman logs --tail {lines} {container}"
     elif app_type == "tmux":
         session = cfg["tmux_session"]

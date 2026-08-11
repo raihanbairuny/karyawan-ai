@@ -217,13 +217,22 @@ def execute_agent_task(self, task_id: str):
                 app_id = ai_decision.get("app_id")
                 lines = int(ai_decision.get("lines", 50))
                 res = get_app_logs(app_id, lines)
-                conversation_history += f"\n\nSystem: Log terbaru dari {app_id}:\n{res.get('data')}"
+                output = res.get('data')
+                if not output:
+                    output = "(Log kosong / tidak ada output / tidak ditemukan)"
+                if not res.get("success"):
+                    output = f"ERROR GAGAL: {output}"
+                conversation_history += f"\n\nSystem: Log terbaru dari {app_id}:\n{output}"
                 
             elif action == "read_remote_file":
                 app_id = ai_decision.get("app_id")
                 filepath = ai_decision.get("filepath")
                 res = read_remote_file(app_id, filepath)
-                content = res.get('data', '')
+                content = res.get('data')
+                if not content:
+                    content = "(File kosong atau tidak ditemukan)"
+                if not res.get("success"):
+                    content = f"ERROR GAGAL BACA FILE: {content}"
                 # Limit length to avoid blowing up context window
                 if len(content) > 10000:
                     content = content[:10000] + "\n...[TRUNCATED]..."
