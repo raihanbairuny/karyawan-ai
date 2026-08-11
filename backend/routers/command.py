@@ -61,8 +61,12 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
                 from config import settings
                 from models import Task
                 
-                last_task = db.query(Task).filter(Task.status == 'done').order_by(Task.created_at.desc()).first()
-                context_str = f"Tugas sebelumnya: {last_task.prompt}\n" if last_task else ""
+                try:
+                    last_task = db.query(Task).filter(Task.status == 'done').order_by(Task.created_at.desc()).first()
+                    context_str = f"Tugas sebelumnya: {last_task.prompt}\n" if last_task else ""
+                except Exception as e:
+                    db.rollback()
+                    context_str = ""
                 
                 client = Client(api_key=settings.GEMINI_API_KEY)
                 llm_prompt = f"Tentukan agen AI yang paling cocok mengerjakan tugas berikut. Jawab HANYA dengan 1 KATA (nama agen).\n\n- budi (Sistem Administrator / DevOps / Error Aplikasi / Server)\n- arif (Database Analyst / SQL / Semua urusan cek data di tabel database)\n- dewi (Data Engineer / Analytics)\n\nJika tugas meminta mengecek data, tabel, atau database, pilih 'arif'.\n\n{context_str}Tugas saat ini: {request.prompt}"
