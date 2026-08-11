@@ -13,7 +13,7 @@ APP_CONFIGS = {
         "ip": settings.SERVER1_IP,
         "port": settings.SERVER1_PORT,
         "type": "docker",
-        "container_name": "streamsheet_2", # Nama container di docker-compose
+        "container_name": "streamsheet_2-web-1", # Nama container di docker-compose
         "path": "/root/streamsheet_2"
     },
     "timesheet_dev": {
