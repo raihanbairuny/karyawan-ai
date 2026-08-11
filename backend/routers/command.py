@@ -31,10 +31,6 @@ class CommandResponse(BaseModel):
 
 @router.post("/command", response_model=CommandResponse)
 async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
-    """
-    Mengirim perintah ke salah satu Karyawan AI.
-
-    Flow:
     """Menerima instruksi (prompt) dari user dan meneruskannya ke agent yang tepat."""
     try:
         import traceback
