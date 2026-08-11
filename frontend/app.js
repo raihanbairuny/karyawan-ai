@@ -191,22 +191,22 @@ async function fetchHealthMetrics() {
                     <div class="health-server-name">${serverName}</div>
                     
                     <div class="health-metric">
-                        <div class="health-metric-header">
+                        <div class="metric-header">
                             <span>RAM (${data.ram_used_mb}MB / ${data.ram_total_mb}MB)</span>
                             <span class="${isWarningRam ? 'warning-text' : ''}">${data.ram_percent}%</span>
                         </div>
-                        <div class="health-bar-bg">
-                            <div class="health-bar-fill ${isWarningRam ? 'warning-bg' : ''}" style="width: ${data.ram_percent}%"></div>
+                        <div class="metric-bar">
+                            <div class="metric-fill ${isWarningRam ? 'warning-bg' : ''}" style="width: ${data.ram_percent}%"></div>
                         </div>
                     </div>
                     
                     <div class="health-metric">
-                        <div class="health-metric-header">
+                        <div class="metric-header">
                             <span>Disk Usage</span>
                             <span class="${isWarningDisk ? 'warning-text' : ''}">${data.disk_percent}%</span>
                         </div>
-                        <div class="health-bar-bg">
-                            <div class="health-bar-fill ${isWarningDisk ? 'warning-bg' : ''}" style="width: ${data.disk_percent}%"></div>
+                        <div class="metric-bar">
+                            <div class="metric-fill ${isWarningDisk ? 'warning-bg' : ''}" style="width: ${data.disk_percent}%"></div>
                         </div>
                     </div>
                 </div>
