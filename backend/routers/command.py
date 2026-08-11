@@ -54,7 +54,6 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
             else:
                 try:
                     from google.genai import Client
-                    from models import Task
                     
                     try:
                         last_task = db.query(Task).filter(Task.status == TaskStatus.DONE).order_by(Task.created_at.desc()).first()
