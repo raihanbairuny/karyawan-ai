@@ -100,6 +100,10 @@ def execute_agent_task(self, task_id: str):
             "response": "jawaban akhir untuk user (hanya jika action = reply)"
         }}
         
+        PANDUAN DATABASE:
+        1. Jika Anda mencari string (seperti nama karyawan), SELALU gunakan "ILIKE '%nama%'" agar pencarian fleksibel, JANGAN gunakan = 'nama'.
+        2. Perhatikan struktur tabel dan join kolom yang benar (contoh: hr_employee dan timesheet_timesheet harus di-join).
+        
         PANDUAN DEVOPS:
         1. Jika user melaporkan error aplikasi, JANGAN menebak. Langsung gunakan action "get_server_logs" dengan "app_id" yang sesuai.
         2. Jika dari log Anda menemukan nama file yang bermasalah, gunakan action "read_remote_file" untuk membaca kodenya.

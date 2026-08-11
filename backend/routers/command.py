@@ -42,29 +42,39 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
     """
     name = request.employee_name.lower().strip()
     
+    valid_names = ["budi", "arif", "dewi", "citra", "eka", "fajar", "gita", "hana", "indra"]
+    
     if name == "auto":
-        try:
-            from google.genai import Client
-            from config import settings
-            client = Client(api_key=settings.GEMINI_API_KEY)
-            prompt = f"Tentukan agen AI yang paling cocok mengerjakan tugas berikut. Jawab HANYA dengan 1 KATA (nama agen).\n\n- budi (Sistem Administrator / DevOps / Error Aplikasi / Server)\n- arif (Database Analyst / SQL / Data Tabel)\n- dewi (Data Engineer / Analytics)\n\nTugas: {request.prompt}"
-            response = client.models.generate_content(
-                model=settings.GEMINI_MODEL,
-                contents=prompt
-            )
-            # Ambil nama yang valid
-            valid_names = ["budi", "arif", "dewi", "citra", "eka", "fajar", "gita", "hana", "indra"]
-            predicted = response.text.strip().lower()
-            
-            # Cari jika kata ada di dalam response
-            assigned = "budi" # default
-            for v in valid_names:
-                if v in predicted:
-                    assigned = v
-                    break
+        prompt_lower = request.prompt.lower()
+        # Jika user menyebut nama agen di awal pesan (misal: "arif, tolong cek...")
+        assigned = None
+        for v in valid_names:
+            if prompt_lower.startswith(f"{v},") or prompt_lower.startswith(f"{v} "):
+                assigned = v
+                break
+                
+        if assigned:
             name = assigned
-        except Exception as e:
-            name = "budi" # fallback
+        else:
+            try:
+                from google.genai import Client
+                from config import settings
+                client = Client(api_key=settings.GEMINI_API_KEY)
+                llm_prompt = f"Tentukan agen AI yang paling cocok mengerjakan tugas berikut. Jawab HANYA dengan 1 KATA (nama agen).\n\n- budi (Sistem Administrator / DevOps / Error Aplikasi / Server)\n- arif (Database Analyst / SQL / Semua urusan cek data di tabel database)\n- dewi (Data Engineer / Analytics)\n\nJika tugas meminta mengecek data, tabel, atau database, pilih 'arif'.\n\nTugas: {request.prompt}"
+                response = client.models.generate_content(
+                    model=settings.GEMINI_MODEL,
+                    contents=llm_prompt
+                )
+                predicted = response.text.strip().lower()
+                
+                assigned = "arif" # default fallback for data queries
+                for v in valid_names:
+                    if v in predicted:
+                        assigned = v
+                        break
+                name = assigned
+            except Exception as e:
+                name = "arif" # fallback to Arif for general data tasks
 
     # Validasi agent ada
     agent = get_agent(name)
