@@ -54,8 +54,16 @@ def execute_sql_query(target_db: str, query: str, limit: int = 100) -> dict:
         
         try:
             # Cegah query berbahaya dieksekusi secara sembarangan
-            query_upper = query.strip().upper()
-            is_select = query_upper.startswith("SELECT") or query_upper.startswith("SHOW") or query_upper.startswith("EXPLAIN")
+            # Hapus komentar di awal query (seperti -- comment atau /* comment */)
+            import re
+            clean_query = re.sub(r'--.*?\n|/\*.*?\*/', '', query, flags=re.DOTALL).strip().upper()
+            
+            is_select = (
+                clean_query.startswith("SELECT") or 
+                clean_query.startswith("WITH") or 
+                clean_query.startswith("SHOW") or 
+                clean_query.startswith("EXPLAIN")
+            )
             
             cur.execute(query)
             affected_rows = cur.rowcount

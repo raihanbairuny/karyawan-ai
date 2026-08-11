@@ -153,7 +153,17 @@ def execute_agent_task(self, task_id: str):
                 target_db = ai_decision.get("target_db")
                 query = ai_decision.get("sql_query")
                 
-                if not query or not str(query).upper().lstrip().startswith("SELECT"):
+                import re
+                clean_query = re.sub(r'--.*?\n|/\*.*?\*/', '', str(query), flags=re.DOTALL).strip().upper() if query else ""
+                
+                is_safe_select = (
+                    clean_query.startswith("SELECT") or 
+                    clean_query.startswith("WITH") or 
+                    clean_query.startswith("SHOW") or 
+                    clean_query.startswith("EXPLAIN")
+                )
+                
+                if not query or not is_safe_select:
                     task.result = "AI mencoba melakukan WRITE menggunakan execute_sql (ditolak) atau query kosong. Harus propose_write dan sertakan sql_query."
                     task.status = TaskStatus.ERROR
                     break
