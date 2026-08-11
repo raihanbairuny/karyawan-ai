@@ -38,10 +38,10 @@ def get_db_connection(target_db: str):
     return psycopg2.connect(db_url)
 
 
-def execute_sql_query(target_db: str, query: str) -> dict:
+def execute_sql_query(target_db: str, query: str, limit: int = 100) -> dict:
     """
     Mengeksekusi SQL query ke target database.
-    Hanya mengembalikan maksimal 50 baris untuk mencegah overload.
+    Hanya mengembalikan maksimal baris sesuai 'limit' untuk mencegah overload.
     
     Returns:
         dict: {"success": bool, "data": list/dict, "error": str, "affected_rows": int}
@@ -62,8 +62,10 @@ def execute_sql_query(target_db: str, query: str) -> dict:
             
             data = []
             if is_select or cur.description:
-                # Jika SELECT, fetch results (limit manually in app if needed, but we fetch up to 100 for safety)
-                rows = cur.fetchmany(100)
+                if limit is None or limit <= 0:
+                    rows = cur.fetchall()
+                else:
+                    rows = cur.fetchmany(limit)
                 data = [dict(row) for row in rows]
             
             # Jika ini bukan select dan kita menggunakan fungsi ini untuk execute langsung, kita harus commit
@@ -104,7 +106,7 @@ def get_database_schema(target_db: str) -> dict:
         WHERE table_schema = 'public' 
         ORDER BY table_name, ordinal_position;
     """
-    res = execute_sql_query(target_db, query)
+    res = execute_sql_query(target_db, query, limit=0)
     
     if not res["success"]:
         return res
