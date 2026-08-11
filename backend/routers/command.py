@@ -59,13 +59,9 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
             try:
                 from google.genai import Client
                 from config import settings
-                from database import SessionLocal
                 from models import Task
                 
-                db = SessionLocal()
                 last_task = db.query(Task).filter(Task.status == 'done').order_by(Task.created_at.desc()).first()
-                db.close()
-                
                 context_str = f"Tugas sebelumnya: {last_task.prompt}\n" if last_task else ""
                 
                 client = Client(api_key=settings.GEMINI_API_KEY)
