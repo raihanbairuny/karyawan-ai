@@ -221,7 +221,7 @@ def execute_agent_task(self, task_id: str):
                 if not output:
                     output = "(Log kosong / tidak ada output / tidak ditemukan)"
                 if not res.get("success"):
-                    output = f"ERROR GAGAL: {output}"
+                    output = f"ERROR GAGAL: {res.get('error', output)}"
                 conversation_history += f"\n\nSystem: Log terbaru dari {app_id}:\n{output}"
                 
             elif action == "read_remote_file":
@@ -232,7 +232,7 @@ def execute_agent_task(self, task_id: str):
                 if not content:
                     content = "(File kosong atau tidak ditemukan)"
                 if not res.get("success"):
-                    content = f"ERROR GAGAL BACA FILE: {content}"
+                    content = f"ERROR GAGAL BACA FILE: {res.get('error', content)}"
                 # Limit length to avoid blowing up context window
                 if len(content) > 10000:
                     content = content[:10000] + "\n...[TRUNCATED]..."
