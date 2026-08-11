@@ -108,6 +108,9 @@ def execute_agent_task(self, task_id: str):
         1. Jika user melaporkan error aplikasi, JANGAN menebak. Langsung gunakan action "get_server_logs" dengan "app_id" yang sesuai.
         2. Jika dari log Anda menemukan nama file yang bermasalah, gunakan action "read_remote_file" untuk membaca kodenya.
         3. Jika Anda sudah tahu solusinya, gunakan action "propose_code_edit" untuk memperbaiki kodenya. User akan diminta persetujuan.
+        
+        PENTING:
+        Pastikan output Anda murni JSON yang valid! JANGAN pernah lupakan koma (,) antar properti, terutama setelah "thought". Usahakan teks dalam "thought" singkat saja agar tidak memicu JSON syntax error.
         """
 
         max_loops = 3
@@ -128,6 +131,10 @@ def execute_agent_task(self, task_id: str):
                 raw_result_clean = raw_result_clean[:-3]
             raw_result_clean = raw_result_clean.strip()
 
+            import re
+            # Auto-fix missing comma between thought and action (common LLM hallucination)
+            raw_result_clean = re.sub(r'"\s*\n\s*"action"', '",\n"action"', raw_result_clean)
+            
             try:
                 ai_decision = json.loads(raw_result_clean)
             except Exception as e:
