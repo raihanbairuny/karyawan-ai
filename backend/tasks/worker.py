@@ -157,9 +157,13 @@ def execute_agent_task(self, task_id: str):
             try:
                 ai_decision = json.loads(raw_result_clean)
             except Exception as e:
-                task.result = f"Error parsing AI response: {raw_result_clean}"
-                task.status = TaskStatus.ERROR
-                break
+                if loop < max_loops:
+                    conversation_history += f"\n\nSystem: ERROR PARSING JSON: {str(e)}. Pastikan output Anda murni JSON yang valid. Gunakan \\n untuk newline, dan escape tanda kutip ganda (\\\"). JANGAN masukkan blok markdown di dalam string JSON. Coba lagi."
+                    continue
+                else:
+                    task.result = f"Error parsing AI response: {raw_result_clean}"
+                    task.status = TaskStatus.ERROR
+                    break
 
             action = ai_decision.get("action")
             
