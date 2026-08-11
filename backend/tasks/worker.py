@@ -234,6 +234,11 @@ def execute_agent_task(self, task_id: str):
                 task.status = TaskStatus.ERROR
                 break
 
+        # Jika loop selesai tapi AI belum memanggil "reply" (misal: asyik execute_sql 3 kali berturut-turut)
+        if task.status == TaskStatus.WORKING:
+            task.status = TaskStatus.DONE
+            task.result = "⚠️ Sistem mencapai batas maksimal pemikiran (3 langkah) tanpa memberikan kesimpulan akhir. Berikut adalah jejak langkah terakhir:\n\n" + conversation_history[-1000:]
+            
         if task.status != TaskStatus.NEEDS_DECISION:
             task.completed_at = datetime.now(timezone.utc)
 

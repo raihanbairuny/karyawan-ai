@@ -104,6 +104,10 @@ def get_database_schema(target_db: str) -> dict:
         SELECT table_name, column_name, data_type 
         FROM information_schema.columns 
         WHERE table_schema = 'public' 
+          AND table_name NOT LIKE 'django_%'
+          AND table_name NOT LIKE 'auth_%'
+          AND table_name NOT LIKE 'celery_%'
+          AND table_name NOT LIKE 'pg_%'
         ORDER BY table_name, ordinal_position;
     """
     res = execute_sql_query(target_db, query, limit=0)
