@@ -266,13 +266,8 @@ async function sendCommand() {
     const sendBtn = document.getElementById('send-btn');
     const feedback = document.getElementById('command-feedback');
 
-    const employeeName = select.value;
     const prompt = input.value.trim();
 
-    if (!employeeName) {
-        showFeedback('Pilih karyawan terlebih dahulu', 'error');
-        return;
-    }
     if (!prompt) {
         showFeedback('Tulis perintah terlebih dahulu', 'error');
         return;
@@ -287,7 +282,7 @@ async function sendCommand() {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({
-                employee_name: employeeName,
+                employee_name: "auto",
                 prompt: prompt,
             }),
         });

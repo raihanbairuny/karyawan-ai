@@ -41,6 +41,30 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
     4. Return response ke user langsung (non-blocking)
     """
     name = request.employee_name.lower().strip()
+    
+    if name == "auto":
+        try:
+            from google.genai import Client
+            from config import settings
+            client = Client(api_key=settings.GEMINI_API_KEY)
+            prompt = f"Tentukan agen AI yang paling cocok mengerjakan tugas berikut. Jawab HANYA dengan 1 KATA (nama agen).\n\n- budi (Sistem Administrator / DevOps / Error Aplikasi / Server)\n- arif (Database Analyst / SQL / Data Tabel)\n- dewi (Data Engineer / Analytics)\n\nTugas: {request.prompt}"
+            response = client.models.generate_content(
+                model=settings.GEMINI_MODEL,
+                contents=prompt
+            )
+            # Ambil nama yang valid
+            valid_names = ["budi", "arif", "dewi", "citra", "eka", "fajar", "gita", "hana", "indra"]
+            predicted = response.text.strip().lower()
+            
+            # Cari jika kata ada di dalam response
+            assigned = "budi" # default
+            for v in valid_names:
+                if v in predicted:
+                    assigned = v
+                    break
+            name = assigned
+        except Exception as e:
+            name = "budi" # fallback
 
     # Validasi agent ada
     agent = get_agent(name)
