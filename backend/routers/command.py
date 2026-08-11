@@ -63,21 +63,21 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
                         context_str = ""
                     
                     client = Client(api_key=settings.GEMINI_API_KEY)
-                    llm_prompt = f"Tentukan agen AI yang paling cocok mengerjakan tugas berikut. Jawab HANYA dengan 1 KATA (nama agen).\n\n- budi (Sistem Administrator / DevOps / Error Aplikasi / Server)\n- arif (Database Analyst / SQL / Semua urusan cek data di tabel database)\n- dewi (Data Engineer / Analytics)\n\nJika tugas meminta mengecek data, tabel, atau database, pilih 'arif'.\n\n{context_str}Tugas saat ini: {request.prompt}"
+                    llm_prompt = f"Pilih 1 nama agen AI yang paling cocok mengerjakan 'Tugas saat ini'. Jawab HANYA dengan 1 KATA (nama agen), tanpa tanda baca atau penjelasan apapun.\n\n- budi (System Admin / DevOps / Error Aplikasi / Server / Cek Log)\n- arif (Database Analyst / SQL / Cek tabel atau data karyawan/timesheet)\n- dewi (Data Engineer / Analytics)\n\nAturan mutlak:\n- Jika tugas menyebut 'error', 'aplikasi', 'log', 'server', pilih 'budi'.\n- Jika tugas meminta cek 'data', 'database', 'tabel', pilih 'arif'.\n\n{context_str}Tugas saat ini: {request.prompt}"
                     response = client.models.generate_content(
                         model=settings.GEMINI_MODEL,
                         contents=llm_prompt
                     )
-                    predicted = response.text.strip().lower()
+                    predicted = response.text.strip().lower().replace(".", "").replace("'", "").replace('"', "")
                     
-                    assigned = "arif" # default fallback for data queries
+                    assigned = "budi" if "error" in request.prompt.lower() else "arif" # better fallback
                     for v in valid_names:
-                        if v in predicted:
+                        if v == predicted: # strict match
                             assigned = v
                             break
                     name = assigned
                 except Exception as e:
-                    name = "arif" # fallback to Arif for general data tasks
+                    name = "budi" if "error" in request.prompt.lower() else "arif"
 
         # Validasi agent ada
         agent = get_agent(name)
