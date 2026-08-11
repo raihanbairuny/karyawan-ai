@@ -113,7 +113,19 @@ def read_remote_file(app_id: str, filepath: str) -> dict:
     
     cmd = f"cat {full_path}"
     ok, out = run_ssh_command(ip, port, cmd)
-    return {"success": ok, "data": out if ok else out}
+    if ok:
+        return {"success": True, "data": out}
+    else:
+        # Jika gagal, coba cari file dengan nama yang sama di dalam base_path
+        filename = filepath.split("/")[-1]
+        find_cmd = f"find {base_path} -name '{filename}' | head -n 3"
+        find_ok, find_out = run_ssh_command(ip, port, find_cmd)
+        
+        error_msg = f"File tidak ditemukan di path: {full_path}"
+        if find_ok and find_out.strip():
+            error_msg += f"\n\nNamun, file dengan nama '{filename}' ditemukan di lokasi berikut:\n{find_out.strip()}\n\nSilakan gunakan salah satu path di atas."
+            
+        return {"success": False, "error": error_msg}
 
 def apply_git_hotfix(app_id: str, filepath: str, new_content: str) -> dict:
     """Membuat branch hotfix baru di VPS, menyimpan kode, lalu push ke origin."""
