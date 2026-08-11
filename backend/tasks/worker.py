@@ -116,7 +116,21 @@ def execute_agent_task(self, task_id: str):
 
         max_loops = 3
         loop = 0
-        conversation_history = task.prompt
+        
+        # Ambil riwayat percakapan sebelumnya untuk konteks
+        recent_tasks = db.query(Task).filter(
+            Task.id != task_id,
+            Task.status == TaskStatus.DONE
+        ).order_by(Task.created_at.desc()).limit(3).all()
+        
+        history_text = ""
+        if recent_tasks:
+            history_text = "=== RIWAYAT PERCAKAPAN SEBELUMNYA SEBAGAI KONTEKS ===\n"
+            for t in reversed(recent_tasks):
+                history_text += f"User: {t.prompt}\nAI ({t.employee_name}): {t.result[:500]}...\n\n"
+            history_text += "=== PERTANYAAN/PERINTAH SAAT INI ===\n"
+            
+        conversation_history = history_text + task.prompt
         
         while loop < max_loops:
             loop += 1
