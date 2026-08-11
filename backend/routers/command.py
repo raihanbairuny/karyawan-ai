@@ -35,99 +35,106 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
     Mengirim perintah ke salah satu Karyawan AI.
 
     Flow:
-    1. Validasi karyawan ada dan aktif
-    2. Simpan task baru ke database (status: PENDING)
-    3. Kirim task ke Celery worker (background)
-    4. Return response ke user langsung (non-blocking)
-    """
-    name = request.employee_name.lower().strip()
-    
-    valid_names = ["budi", "arif", "dewi", "citra", "eka", "fajar", "gita", "hana", "indra"]
-    
-    if name == "auto":
-        prompt_lower = request.prompt.lower()
-        # Jika user menyebut nama agen di awal pesan (misal: "arif, tolong cek...")
-        assigned = None
-        for v in valid_names:
-            if prompt_lower.startswith(f"{v},") or prompt_lower.startswith(f"{v} "):
-                assigned = v
-                break
-                
-        if assigned:
-            name = assigned
-        else:
-            try:
-                from google.genai import Client
-                from config import settings
-                from models import Task
-                
-                try:
-                    last_task = db.query(Task).filter(Task.status == 'done').order_by(Task.created_at.desc()).first()
-                    context_str = f"Tugas sebelumnya: {last_task.prompt}\n" if last_task else ""
-                except Exception as e:
-                    db.rollback()
-                    context_str = ""
-                
-                client = Client(api_key=settings.GEMINI_API_KEY)
-                llm_prompt = f"Tentukan agen AI yang paling cocok mengerjakan tugas berikut. Jawab HANYA dengan 1 KATA (nama agen).\n\n- budi (Sistem Administrator / DevOps / Error Aplikasi / Server)\n- arif (Database Analyst / SQL / Semua urusan cek data di tabel database)\n- dewi (Data Engineer / Analytics)\n\nJika tugas meminta mengecek data, tabel, atau database, pilih 'arif'.\n\n{context_str}Tugas saat ini: {request.prompt}"
-                response = client.models.generate_content(
-                    model=settings.GEMINI_MODEL,
-                    contents=llm_prompt
-                )
-                predicted = response.text.strip().lower()
-                
-                assigned = "arif" # default fallback for data queries
-                for v in valid_names:
-                    if v in predicted:
-                        assigned = v
-                        break
+    """Menerima instruksi (prompt) dari user dan meneruskannya ke agent yang tepat."""
+    try:
+        import traceback
+        from config import settings
+        
+        valid_names = ["arif", "budi", "citra", "dewi", "eka", "fajar", "gita", "hana", "indra"]
+        
+        # 1. Smart Dispatcher (Jika user memilih "auto")
+        name = request.employee_name.lower()
+        if name == "auto":
+            prompt_lower = request.prompt.lower()
+            # Jika user menyebut nama agen di awal pesan (misal: "arif, tolong cek...")
+            assigned = None
+            for v in valid_names:
+                if prompt_lower.startswith(f"{v},") or prompt_lower.startswith(f"{v} "):
+                    assigned = v
+                    break
+                    
+            if assigned:
                 name = assigned
-            except Exception as e:
-                name = "arif" # fallback to Arif for general data tasks
+            else:
+                try:
+                    from google.genai import Client
+                    from models import Task
+                    
+                    try:
+                        last_task = db.query(Task).filter(Task.status == TaskStatus.DONE).order_by(Task.created_at.desc()).first()
+                        context_str = f"Tugas sebelumnya: {last_task.prompt}\n" if last_task else ""
+                    except Exception:
+                        db.rollback()
+                        context_str = ""
+                    
+                    client = Client(api_key=settings.GEMINI_API_KEY)
+                    llm_prompt = f"Tentukan agen AI yang paling cocok mengerjakan tugas berikut. Jawab HANYA dengan 1 KATA (nama agen).\n\n- budi (Sistem Administrator / DevOps / Error Aplikasi / Server)\n- arif (Database Analyst / SQL / Semua urusan cek data di tabel database)\n- dewi (Data Engineer / Analytics)\n\nJika tugas meminta mengecek data, tabel, atau database, pilih 'arif'.\n\n{context_str}Tugas saat ini: {request.prompt}"
+                    response = client.models.generate_content(
+                        model=settings.GEMINI_MODEL,
+                        contents=llm_prompt
+                    )
+                    predicted = response.text.strip().lower()
+                    
+                    assigned = "arif" # default fallback for data queries
+                    for v in valid_names:
+                        if v in predicted:
+                            assigned = v
+                            break
+                    name = assigned
+                except Exception as e:
+                    name = "arif" # fallback to Arif for general data tasks
 
-    # Validasi agent ada
-    agent = get_agent(name)
-    if not agent:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Karyawan '{name}' tidak ditemukan. "
-                   f"Pilihan: arif, budi, citra, dewi, eka, fajar, gita, hana, indra",
+        # Validasi agent ada
+        agent = get_agent(name)
+        if not agent:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Karyawan '{name}' tidak ditemukan. "
+                       f"Pilihan: arif, budi, citra, dewi, eka, fajar, gita, hana, indra",
+            )
+
+        # Validasi employee aktif di database
+        employee = db.query(Employee).filter(Employee.name == name).first()
+            
+        if employee and not employee.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Karyawan '{name}' sedang tidak aktif (di-pause).",
+            )
+
+        # Buat task baru
+        task = Task(
+            employee_name=name,
+            prompt=request.prompt,
+            status=TaskStatus.PENDING,
         )
+        db.add(task)
 
-    # Validasi employee aktif di database
-    employee = db.query(Employee).filter(Employee.name == name).first()
-    if employee and not employee.is_active:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Karyawan '{name}' sedang tidak aktif (di-pause).",
+        # Log aktivitas
+        db.add(ActivityLog(
+            employee_name=name,
+            action="task_created",
+            detail=f"Perintah baru: {request.prompt[:100]}",
+        ))
+
+        db.commit()
+        db.refresh(task)
+
+        # Kirim ke Celery worker (background processing)
+        execute_agent_task.delay(task.id)
+
+        return CommandResponse(
+            task_id=task.id,
+            employee_name=name,
+            message=f"{agent.emoji} {agent.display_name} mulai bekerja...",
         )
-
-    # Buat task baru
-    task = Task(
-        employee_name=name,
-        prompt=request.prompt,
-        status=TaskStatus.PENDING,
-    )
-    db.add(task)
-
-    # Log aktivitas
-    db.add(ActivityLog(
-        employee_name=name,
-        action="task_created",
-        detail=f"Perintah baru: {request.prompt[:100]}",
-    ))
-
-    db.commit()
-    db.refresh(task)
-
-    # Kirim ke Celery worker (background processing)
-    execute_agent_task.delay(task.id)
-
-    return CommandResponse(
-        task_id=task.id,
-        employee_name=name,
-        message=f"{agent.emoji} {agent.display_name} mulai bekerja...",
-    )
+    except Exception as full_ex:
+        db.rollback()
+        return CommandResponse(
+            task_id="debug_error",
+            employee_name="error",
+            message=f"DEBUG ERROR: {str(full_ex)} | Traceback: {traceback.format_exc()}"
+        )
 
 
 @router.post("/command/{task_id}/confirm")
