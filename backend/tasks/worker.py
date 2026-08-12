@@ -142,7 +142,7 @@ def execute_agent_task(self, task_id: str):
                 conversation_history, 
                 context=context, 
                 json_mode=True, 
-                image_data=task.image_data if loop == 1 else None
+                image_data=task.image_data
             )
             
             # Strip markdown json block if Gemini hallucinates it

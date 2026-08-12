@@ -57,6 +57,9 @@ class BaseAgent:
 
         full_prompt += f"=== PERINTAH DARI USER ===\n{prompt}"
         
+        if image_data:
+            full_prompt += "\n\n[INFO SYSTEM: USER MELAMPIRKAN SEBUAH GAMBAR. PERHATIKAN GAMBAR TERSEBUT UNTUK MENJAWAB PERINTAH DI ATAS!]"
+        
         # Tambahkan instruksi JSON murni jika mode aktif
         if json_mode:
             full_prompt += "\n\nKEMBALIKAN OUTPUT HANYA DALAM BENTUK JSON (Tanpa blok markdown ```json)."
