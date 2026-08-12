@@ -262,9 +262,7 @@ async function executeServerAction(appId, actionName) {
 
 let currentImageData = null;
 
-// Image upload handling
-document.getElementById('image-upload').addEventListener('change', function(e) {
-    const file = e.target.files[0];
+function handleImageFile(file) {
     if (!file) return;
     
     // Check if it's an image
@@ -280,6 +278,30 @@ document.getElementById('image-upload').addEventListener('change', function(e) {
         document.getElementById('image-preview-container').classList.remove('hidden');
     };
     reader.readAsDataURL(file);
+}
+
+// Image upload handling (button)
+document.getElementById('image-upload').addEventListener('change', function(e) {
+    handleImageFile(e.target.files[0]);
+});
+
+// Image upload handling (paste)
+document.addEventListener('paste', function(e) {
+    // Only handle paste if command input is active or no other inputs are active
+    const activeEl = document.activeElement;
+    if (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') {
+        if (activeEl.id !== 'command-input') return; // Ignore paste on other inputs
+    }
+
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let index in items) {
+        const item = items[index];
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const blob = item.getAsFile();
+            handleImageFile(blob);
+            break;
+        }
+    }
 });
 
 document.getElementById('image-preview-remove').addEventListener('click', function() {
