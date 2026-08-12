@@ -114,7 +114,7 @@ def execute_agent_task(self, task_id: str):
         Pastikan output Anda murni JSON yang valid! JANGAN pernah lupakan koma (,) antar properti, terutama setelah "thought". Usahakan teks dalam "thought" singkat saja agar tidak memicu JSON syntax error.
         """
 
-        max_loops = 3
+        max_loops = 5
         loop = 0
         
         # Ambil riwayat percakapan sebelumnya untuk konteks
@@ -279,7 +279,7 @@ def execute_agent_task(self, task_id: str):
         # Jika loop selesai tapi AI belum memanggil "reply" (misal: asyik execute_sql 3 kali berturut-turut)
         if task.status == TaskStatus.WORKING:
             task.status = TaskStatus.DONE
-            task.result = "⚠️ Sistem mencapai batas maksimal pemikiran (3 langkah) tanpa memberikan kesimpulan akhir. Berikut adalah jejak langkah terakhir:\n\n" + conversation_history[-1000:]
+            task.result = f"⚠️ Sistem mencapai batas maksimal pemikiran ({max_loops} langkah) tanpa memberikan kesimpulan akhir. Berikut adalah jejak langkah terakhir:\n\n" + conversation_history[-1000:]
             
         if task.status != TaskStatus.NEEDS_DECISION:
             task.completed_at = datetime.now(timezone.utc)
