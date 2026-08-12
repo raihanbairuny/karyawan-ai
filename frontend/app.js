@@ -260,6 +260,35 @@ async function executeServerAction(appId, actionName) {
     }
 }
 
+let currentImageData = null;
+
+// Image upload handling
+document.getElementById('image-upload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Check if it's an image
+    if (!file.type.startsWith('image/')) {
+        showFeedback('File harus berupa gambar', 'error');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        currentImageData = event.target.result;
+        document.getElementById('image-preview-img').src = currentImageData;
+        document.getElementById('image-preview-container').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+});
+
+document.getElementById('image-preview-remove').addEventListener('click', function() {
+    currentImageData = null;
+    document.getElementById('image-upload').value = '';
+    document.getElementById('image-preview-container').classList.add('hidden');
+    document.getElementById('image-preview-img').src = '';
+});
+
 async function sendCommand() {
     const select = document.getElementById('employee-select');
     const input = document.getElementById('command-input');
@@ -268,8 +297,8 @@ async function sendCommand() {
 
     const prompt = input.value.trim();
 
-    if (!prompt) {
-        showFeedback('Tulis perintah terlebih dahulu', 'error');
+    if (!prompt && !currentImageData) {
+        showFeedback('Tulis perintah atau lampirkan gambar', 'error');
         return;
     }
 
@@ -278,13 +307,19 @@ async function sendCommand() {
     sendBtn.innerHTML = '<div class="spinner"></div>';
 
     try {
+        const payload = {
+            employee_name: "auto",
+            prompt: prompt || "Tolong analisa gambar ini",
+        };
+        
+        if (currentImageData) {
+            payload.image_data = currentImageData;
+        }
+
         const res = await fetch(`${API_BASE}/command`, {
             method: 'POST',
             headers: getAuthHeaders(),
-            body: JSON.stringify({
-                employee_name: "auto",
-                prompt: prompt,
-            }),
+            body: JSON.stringify(payload),
         });
         
         if (res.status === 401) {
@@ -302,6 +337,12 @@ async function sendCommand() {
         showFeedback(data.message, 'success');
         input.value = '';
         input.style.height = 'auto';
+        
+        // Clear image
+        currentImageData = null;
+        document.getElementById('image-upload').value = '';
+        document.getElementById('image-preview-container').classList.add('hidden');
+        document.getElementById('image-preview-img').src = '';
 
         // Refresh dashboard segera
         setTimeout(fetchDashboard, 1000);
@@ -538,6 +579,16 @@ async function openTaskModal(taskId) {
         ${task.completed_at ? `<span class="meta-tag">⏱️ ${formatDuration(task.created_at, task.completed_at)}</span>` : ''}
     `;
     promptText.textContent = task.prompt;
+    
+    const promptImg = document.getElementById('modal-prompt-image');
+    if (task.image_data) {
+        promptImg.src = task.image_data;
+        promptImg.style.display = 'block';
+    } else {
+        promptImg.src = '';
+        promptImg.style.display = 'none';
+    }
+
     resultText.textContent = task.result || task.error_message || 'Belum ada hasil (masih diproses...)';
 
     // Handle Confirmation Area

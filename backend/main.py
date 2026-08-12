@@ -28,9 +28,9 @@ EMPLOYEE_SEED = [
     },
     {
         "name": "budi",
-        "role": "Data Reporter",
-        "emoji": "📊",
-        "description": "Membuat laporan & rangkuman data dari database",
+        "role": "System Administrator & DevOps",
+        "emoji": "🛠️",
+        "description": "Menganalisis error aplikasi, logs, & usulkan perbaikan (hotfix)",
     },
     {
         "name": "citra",
@@ -87,6 +87,16 @@ async def lifespan(app: FastAPI):
     # Create tables
     Base.metadata.create_all(bind=engine)
 
+    # Auto-migration: add image_data column if missing
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN image_data TEXT;"))
+            print("Successfully added image_data column to tasks table.")
+    except Exception as e:
+        # Column already exists or other error (ignored during startup)
+        pass
+
     # Seed employees
     db = SessionLocal()
     try:
@@ -96,6 +106,10 @@ async def lifespan(app: FastAPI):
             ).first()
             if not existing:
                 db.add(Employee(**emp_data))
+            else:
+                existing.role = emp_data["role"]
+                existing.emoji = emp_data["emoji"]
+                existing.description = emp_data["description"]
         db.commit()
     except Exception as e:
         print(f"ERROR SEEDING DATABASE: {e}")

@@ -40,6 +40,7 @@ class Task(Base):
     id = Column(String, primary_key=True, default=generate_id)
     employee_name = Column(String, nullable=False, index=True)
     prompt = Column(Text, nullable=False)
+    image_data = Column(Text, nullable=True)
     result = Column(Text, nullable=True)
     status = Column(String, default=TaskStatus.PENDING, index=True)
     error_message = Column(Text, nullable=True)

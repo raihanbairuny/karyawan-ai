@@ -20,6 +20,7 @@ class CommandRequest(BaseModel):
     """Schema untuk mengirim perintah ke karyawan."""
     employee_name: str = Field(..., description="Nama karyawan (lowercase)")
     prompt: str = Field(..., min_length=1, max_length=5000, description="Perintah untuk karyawan")
+    image_data: str | None = Field(default=None, description="Base64 encoded image data string")
 
 
 class CommandResponse(BaseModel):
@@ -101,6 +102,7 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
         task = Task(
             employee_name=name,
             prompt=request.prompt,
+            image_data=request.image_data,
             status=TaskStatus.PENDING,
         )
         db.add(task)

@@ -138,7 +138,12 @@ def execute_agent_task(self, task_id: str):
         
         while loop < max_loops:
             loop += 1
-            raw_result = agent.think(conversation_history, context=context, json_mode=True)
+            raw_result = agent.think(
+                conversation_history, 
+                context=context, 
+                json_mode=True, 
+                image_data=task.image_data if loop == 1 else None
+            )
             
             # Strip markdown json block if Gemini hallucinates it
             raw_result_clean = raw_result.strip()

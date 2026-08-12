@@ -524,6 +524,66 @@ body::before {
     color: var(--text-muted);
 }
 
+.attach-btn {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-glass);
+    border-radius: 50%;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.attach-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.image-preview-container {
+    position: relative;
+    display: inline-block;
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-glass);
+    width: 100%;
+}
+
+.image-preview-container.hidden {
+    display: none;
+}
+
+#image-preview-img {
+    max-height: 100px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-glass);
+    object-fit: cover;
+}
+
+.image-preview-remove {
+    position: absolute;
+    top: -8px;
+    left: 80px; /* roughly right of a small thumbnail */
+    width: 24px;
+    height: 24px;
+    background: var(--status-error);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    z-index: 10;
+}
+
 .send-btn {
     width: 40px;
     height: 40px;

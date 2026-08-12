@@ -61,6 +61,7 @@ async def get_task(task_id: str, db: Session = Depends(get_db)):
         "status": task.status,
         "error_message": task.error_message,
         "affected_rows_json": task.affected_rows_json,
+        "image_data": task.image_data,
         "created_at": task.created_at.isoformat() if task.created_at else None,
         "started_at": task.started_at.isoformat() if task.started_at else None,
         "completed_at": task.completed_at.isoformat() if task.completed_at else None,
