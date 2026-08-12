@@ -84,7 +84,7 @@ def execute_agent_task(self, task_id: str):
         Output HARUS selalu berupa JSON murni dengan skema:
         {{
             "thought": "Analisa Anda (wajib diisi)",
-            "action": "Pilih salah satu: reply | execute_sql | propose_write | get_server_logs | read_remote_file | propose_code_edit",
+            "action": "Pilih salah satu: reply | execute_sql | propose_write | get_server_logs | read_remote_file | propose_code_edit | delegate_task",
             
             // Parameter khusus Database (isi jika pakai alat DB):
             "target_db": "timesheet" atau "datahandling" atau null,
@@ -96,6 +96,10 @@ def execute_agent_task(self, task_id: str):
             "lines": 50, // Jumlah baris log untuk get_server_logs
             "filepath": "Path relatif file (misal: main.py atau src/app.js) untuk read_remote_file & propose_code_edit",
             "new_code": "Kode penuh baru (pengganti) untuk propose_code_edit",
+            
+            // Parameter khusus Kolaborasi (isi jika action = delegate_task):
+            "target_agent": "Nama agen spesialis yang akan dilimpahkan tugas (misal: citra, budi, dll)",
+            "delegate_prompt": "Instruksi/pesan spesifik yang ingin Anda sampaikan ke agen tersebut",
             
             "response": "jawaban akhir untuk user (hanya jika action = reply)"
         }}
@@ -274,6 +278,50 @@ def execute_agent_task(self, task_id: str):
                 
                 task.status = TaskStatus.NEEDS_DECISION
                 task.result = f"AI mengusulkan perbaikan kode (Autocoding) pada aplikasi {app_id}, file `{filepath}`.\nAlasan: {ai_decision.get('thought')}"
+                break
+                
+            elif action == "delegate_task":
+                target_agent = ai_decision.get("target_agent")
+                delegate_prompt = ai_decision.get("delegate_prompt")
+                
+                if not target_agent or not delegate_prompt:
+                    task.result = "AI gagal menyertakan target_agent atau delegate_prompt untuk mendelegasikan tugas."
+                    task.status = TaskStatus.ERROR
+                    break
+                    
+                target_agent = target_agent.lower()
+                
+                from models import ActivityLog
+                
+                # Buat task baru untuk target_agent
+                new_task = Task(
+                    employee_name=target_agent,
+                    prompt=f"Tugas delegasi dari @{task.employee_name}: {delegate_prompt}\n\n=== KONTEKS AWAL USER ===\n{task.prompt}",
+                    image_data=task.image_data,  # Teruskan gambar jika ada
+                    status=TaskStatus.PENDING,
+                )
+                db.add(new_task)
+                
+                # Log aktivitas handoff
+                db.add(ActivityLog(
+                    employee_name=task.employee_name,
+                    action="delegate_task",
+                    detail=f"Mendelegasikan tugas ke @{target_agent}: {delegate_prompt[:50]}...",
+                ))
+                
+                db.commit()
+                db.refresh(new_task)
+                
+                # Panggil worker secara asynchronous untuk task baru
+                # (import diri sendiri / circular import dihindari dengan import lokal atau delay via celery)
+                try:
+                    from tasks.worker import execute_agent_task as local_execute
+                    local_execute.delay(new_task.id)
+                except Exception as e:
+                    print(f"Error triggering delegated task: {e}")
+                
+                task.result = f"Saya telah mendelegasikan kelanjutan tugas ini kepada @{target_agent} dengan pesan:\n> {delegate_prompt}"
+                task.status = TaskStatus.DONE
                 break
                 
             else:
