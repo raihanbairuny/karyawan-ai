@@ -75,9 +75,21 @@ def execute_agent_task(self, task_id: str):
         if schema_datahandling.get("success"):
             context += f"Database 'datahandling':\n{json.dumps(schema_datahandling['data'], indent=2)}\n\n"
             
+        from agents import get_all_agents
+        all_agents = get_all_agents()
+        roster_str = ""
+        for ag_name, ag_obj in all_agents.items():
+            if ag_name != task.employee_name:
+                roster_str += f"- {ag_name}: {ag_obj.role}\n"
+
         context += f"""
         === DAFTAR APLIKASI SERVER (APP_ID) ===
         {list(APP_CONFIGS.keys())}
+        
+        === REKAN KERJA (UNTUK DELEGASI) ===
+        Jika ada bagian tugas yang BUKAN spesialisasi Anda, Anda WAJIB menggunakan action 'delegate_task' ke rekan yang tepat.
+        Daftar rekan kerja:
+        {roster_str}
         
         === ATURAN PENGGUNAAN ALAT (TOOLS) ===
         Anda memiliki akses ke Database dan Server VPS secara langsung.
@@ -89,16 +101,16 @@ def execute_agent_task(self, task_id: str):
             // Parameter khusus Database (isi jika pakai alat DB):
             "target_db": "timesheet" atau "datahandling" atau null,
             "sql_query": "query SQL Anda" atau null,
-            "select_query": "query SELECT khusus untuk action=propose_write untuk melihat data yang akan terhapus/terubah",
+            "select_query": "query SELECT khusus untuk action=propose_write",
             
             // Parameter khusus Server DevOps (isi jika pakai alat Server):
             "app_id": "Pilih salah satu ID dari daftar aplikasi di atas",
             "lines": 50, // Jumlah baris log untuk get_server_logs
-            "filepath": "Path relatif file (misal: main.py atau src/app.js) untuk read_remote_file & propose_code_edit",
+            "filepath": "Path relatif file untuk read_remote_file & propose_code_edit",
             "new_code": "Kode penuh baru (pengganti) untuk propose_code_edit",
             
             // Parameter khusus Kolaborasi (isi jika action = delegate_task):
-            "target_agent": "Nama agen spesialis yang akan dilimpahkan tugas (misal: citra, budi, dll)",
+            "target_agent": "Nama agen dari Daftar Rekan Kerja di atas",
             "delegate_prompt": "Instruksi/pesan spesifik yang ingin Anda sampaikan ke agen tersebut",
             
             "response": "jawaban akhir untuk user (hanya jika action = reply)"

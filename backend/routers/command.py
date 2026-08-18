@@ -63,17 +63,22 @@ async def send_command(request: CommandRequest, db: Session = Depends(get_db)):
                         db.rollback()
                         context_str = ""
                     
-                    client = Client(api_key=settings.GEMINI_API_KEY)
-                    llm_prompt = f"Pilih 1 nama agen AI yang paling cocok mengerjakan 'Tugas saat ini'. Jawab HANYA dengan 1 KATA (nama agen), tanpa tanda baca atau penjelasan apapun.\n\n- budi (System Admin / DevOps / Error Aplikasi / Server / Cek Log)\n- arif (Database Analyst / SQL / Cek tabel atau data karyawan/timesheet)\n- dewi (Data Engineer / Analytics)\n\nAturan mutlak:\n- Jika tugas menyebut 'error', 'aplikasi', 'log', 'server', pilih 'budi'.\n- Jika tugas meminta cek 'data', 'database', 'tabel', pilih 'arif'.\n\n{context_str}Tugas saat ini: {request.prompt}"
+                    from agents import get_all_agents
+                    all_agents = get_all_agents()
+                    roster_str = ""
+                    for ag_name, ag_obj in all_agents.items():
+                        roster_str += f"- {ag_name} ({ag_obj.role})\n"
+                    
+                    llm_prompt = f"Pilih 1 nama agen AI yang paling cocok mengerjakan 'Tugas saat ini'. Jawab HANYA dengan 1 KATA (nama agen), tanpa tanda baca atau penjelasan apapun.\n\nDAFTAR AGEN:\n{roster_str}\n\n{context_str}Tugas saat ini: {request.prompt}"
                     response = client.models.generate_content(
                         model=settings.GEMINI_MODEL,
                         contents=llm_prompt
                     )
                     predicted = response.text.strip().lower().replace(".", "").replace("'", "").replace('"', "")
                     
-                    assigned = "budi" if "error" in request.prompt.lower() else "arif" # better fallback
+                    assigned = "budi" if "error" in request.prompt.lower() else "arif" # fallback
                     for v in valid_names:
-                        if v == predicted: # strict match
+                        if v in predicted: # match substring
                             assigned = v
                             break
                     name = assigned
