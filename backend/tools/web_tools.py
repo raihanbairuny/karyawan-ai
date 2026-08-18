@@ -28,46 +28,52 @@ def search_web(query: str, max_results: int = 5) -> dict:
             "data": "\n".join(formatted_results)
         }
     except Exception as api_err:
-        print(f"DDGS API Error: {api_err}. Mencoba fallback HTML scraping...")
-        # Percobaan 2: Fallback manual scraping jika Rate Limit
-        try:
-            import urllib.parse
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Content-Type': 'application/x-www-form-urlencoded',
-            }
-            data = {"q": query}
-            res = requests.post("https://lite.duckduckgo.com/lite/", headers=headers, data=data, timeout=15)
-            soup = BeautifulSoup(res.text, 'html.parser')
-            
-            results = []
-            for tr in soup.find_all('tr'):
-                td = tr.find('td', class_='result-snippet')
-                if td:
-                    snippet = td.get_text(strip=True)
-                    # Find the previous tr for the title and link
-                    prev_tr = tr.find_previous_sibling('tr')
-                    if prev_tr:
-                        a = prev_tr.find('a', class_='result-url')
-                        if a:
-                            url = a.get('href')
-                            results.append(f"- URL: {url}\nSnippet: {snippet}\n")
-                            if len(results) >= max_results:
-                                break
-            
-            if not results:
-                return {"success": False, "error": f"Rate limit API & Fallback tidak menemukan data. Pesan asli: {api_err}"}
+        print(f"DDGS API Error: {api_err}. Beralih ke Fallback API (Wikipedia / StackOverflow)...")
+        # Percobaan 2: Fallback ke Public APIs yang tidak di-block (Wikipedia & StackOverflow)
+        import urllib.parse
+        results = []
+        query_lower = query.lower()
+        
+        # Jika query berbau coding/error, gunakan StackOverflow API
+        if any(kw in query_lower for kw in ['error', 'exception', 'bug', 'python', 'javascript', 'php', 'java', 'c++']):
+            try:
+                so_url = f"https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q={urllib.parse.quote(query)}&site=stackoverflow&filter=withbody"
+                res = requests.get(so_url, timeout=10)
+                if res.status_code == 200:
+                    items = res.json().get('items', [])[:3]
+                    for item in items:
+                        title = item.get('title', '')
+                        link = item.get('link', '')
+                        body = item.get('body', '')[:200] # Potong agar tidak kepanjangan
+                        results.append(f"- [StackOverflow] {title}\nURL: {link}\nSnippet: {body}...\n")
+            except Exception as e:
+                print(f"StackOverflow Fallback Error: {e}")
                 
-            return {
-                "success": True,
-                "data": "\n".join(results)
-            }
-        except Exception as fb_err:
-            return {
-                "success": False,
-                "error": f"API Error: {api_err} | Fallback Error: {fb_err}"
-            }
+        # Jika bukan coding atau StackOverflow kosong, gunakan Wikipedia API
+        if not results:
+            try:
+                wiki_url = f"https://id.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(query)}&utf8=&format=json"
+                res = requests.get(wiki_url, timeout=10)
+                if res.status_code == 200:
+                    items = res.json().get('query', {}).get('search', [])[:3]
+                    for item in items:
+                        title = item.get('title', '')
+                        snippet = item.get('snippet', '')
+                        # Bersihkan tag HTML sederhana dari snippet Wikipedia
+                        import re
+                        snippet_clean = re.sub('<[^<]+>', '', snippet)
+                        link = f"https://id.wikipedia.org/wiki/{urllib.parse.quote(title)}"
+                        results.append(f"- [Wikipedia] {title}\nURL: {link}\nSnippet: {snippet_clean}...\n")
+            except Exception as e:
+                print(f"Wikipedia Fallback Error: {e}")
+                
+        if not results:
+            return {"success": False, "error": f"Pencarian diblokir (Rate limit). API alternatif (SO/Wiki) tidak menemukan kecocokan untuk: '{query}'"}
+            
+        return {
+            "success": True,
+            "data": "\n".join(results)
+        }
 
 def read_url_content(url: str) -> dict:
     """
