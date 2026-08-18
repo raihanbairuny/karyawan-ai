@@ -134,7 +134,7 @@ def execute_agent_task(self, task_id: str):
         Pastikan output Anda murni JSON yang valid! JANGAN pernah lupakan koma (,) antar properti, terutama setelah "thought". Usahakan teks dalam "thought" singkat saja agar tidak memicu JSON syntax error.
         """
 
-        max_loops = 5
+        max_loops = 10
         loop = 0
         
         # Ambil riwayat percakapan sebelumnya untuk konteks
