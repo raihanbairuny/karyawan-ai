@@ -33,22 +33,28 @@ def search_web(query: str, max_results: int = 5) -> dict:
         try:
             import urllib.parse
             headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
+                'Content-Type': 'application/x-www-form-urlencoded',
             }
-            res = requests.get(f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}", headers=headers, timeout=15)
+            data = {"q": query}
+            res = requests.post("https://lite.duckduckgo.com/lite/", headers=headers, data=data, timeout=15)
             soup = BeautifulSoup(res.text, 'html.parser')
             
             results = []
-            for a in soup.find_all('a', class_='result__url', limit=max_results):
-                url = a.get('href')
-                if url:
-                    # Parse title from sibling or parent
-                    title_elem = a.find_parent('div', class_='result__body').find('a', class_='result__snippet')
-                    title = a.get_text(strip=True)
-                    snippet = title_elem.get_text(strip=True) if title_elem else ""
-                    results.append(f"- URL: {url}\nSnippet: {snippet}\n")
+            for tr in soup.find_all('tr'):
+                td = tr.find('td', class_='result-snippet')
+                if td:
+                    snippet = td.get_text(strip=True)
+                    # Find the previous tr for the title and link
+                    prev_tr = tr.find_previous_sibling('tr')
+                    if prev_tr:
+                        a = prev_tr.find('a', class_='result-url')
+                        if a:
+                            url = a.get('href')
+                            results.append(f"- URL: {url}\nSnippet: {snippet}\n")
+                            if len(results) >= max_results:
+                                break
             
             if not results:
                 return {"success": False, "error": f"Rate limit API & Fallback tidak menemukan data. Pesan asli: {api_err}"}
