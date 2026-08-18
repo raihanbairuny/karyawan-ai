@@ -291,7 +291,6 @@ def execute_agent_task(self, task_id: str):
                     
                 target_agent = target_agent.lower()
                 
-                from models import ActivityLog
                 
                 # Buat task baru untuk target_agent
                 new_task = Task(
