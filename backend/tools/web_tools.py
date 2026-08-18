@@ -37,7 +37,14 @@ def search_web(query: str, max_results: int = 5) -> dict:
         # Jika query berbau coding/error, gunakan StackOverflow API
         if any(kw in query_lower for kw in ['error', 'exception', 'bug', 'python', 'javascript', 'php', 'java', 'c++']):
             try:
-                so_url = f"https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q={urllib.parse.quote(query)}&site=stackoverflow&filter=withbody"
+                import re
+                # Hapus kata spesifik dalam tanda kutip (misal: 'ActivityLog') agar pencarian lebih luas
+                clean_query = re.sub(r"['\"].*?['\"]", "", query).strip()
+                # Jika clean_query jadi kosong, pakai query asli
+                if not clean_query:
+                    clean_query = query
+                    
+                so_url = f"https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q={urllib.parse.quote(clean_query)}&site=stackoverflow&filter=withbody"
                 res = requests.get(so_url, timeout=10)
                 if res.status_code == 200:
                     items = res.json().get('items', [])[:3]
@@ -68,7 +75,7 @@ def search_web(query: str, max_results: int = 5) -> dict:
                 print(f"Wikipedia Fallback Error: {e}")
                 
         if not results:
-            return {"success": False, "error": f"Pencarian diblokir (Rate limit). API alternatif (SO/Wiki) tidak menemukan kecocokan untuk: '{query}'"}
+            return {"success": False, "error": f"Pencarian berhasil dilakukan di DuckDuckGo, StackOverflow, & Wikipedia, tapi TIDAK ADA HASIL (kosong) untuk kata kunci spesifik: '{query}'. Coba persingkat kata kuncinya (misal hilangkan nama variabel lokal)."}
             
         return {
             "success": True,
