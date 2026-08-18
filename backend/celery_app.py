@@ -34,5 +34,15 @@ celery_app.conf.update(
     # Task routing — setiap karyawan punya queue sendiri
     task_routes={
         "tasks.worker.execute_agent_task": {"queue": "default"},
+        "tasks.worker.check_cron_jobs": {"queue": "default"},
     },
 )
+
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    'check-ai-cron-jobs-every-minute': {
+        'task': 'tasks.worker.check_cron_jobs',
+        'schedule': crontab(minute='*'),
+    },
+}

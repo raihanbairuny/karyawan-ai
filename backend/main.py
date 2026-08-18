@@ -13,7 +13,7 @@ from database import engine, SessionLocal, Base
 from models import Employee
 
 # Import routers
-from routers import command, employees, tasks, dashboard, servers, auth
+from routers import command, employees, tasks, dashboard, servers, auth, webhook
 
 
 # ============================================
@@ -148,6 +148,7 @@ app.include_router(command.router)
 app.include_router(employees.router)
 app.include_router(tasks.router)
 app.include_router(servers.router)
+app.include_router(webhook.router)
 
 
 @app.get("/api/health")

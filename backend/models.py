@@ -87,3 +87,17 @@ class ActivityLog(Base):
     action = Column(String, nullable=False)
     detail = Column(Text)
     timestamp = Column(DateTime(timezone=True), default=utcnow, index=True)
+
+class CronJob(Base):
+    """
+    Tugas rutin/terjadwal untuk Karyawan AI.
+    """
+    __tablename__ = "cron_jobs"
+
+    id = Column(String, primary_key=True, default=generate_id)
+    employee_name = Column(String, nullable=False)
+    prompt = Column(Text, nullable=False)
+    cron_expression = Column(String, nullable=False) # e.g. "0 8 * * *"
+    is_active = Column(Boolean, default=True)
+    last_run = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)

@@ -154,8 +154,11 @@ async def confirm_task(task_id: str, db: Session = Depends(get_db)):
     if task.affected_rows_json:
         try:
             parsed = json.loads(task.affected_rows_json)
-            if isinstance(parsed, dict) and parsed.get("type") == "code_edit":
-                action_type = "code_edit"
+            if isinstance(parsed, dict):
+                if parsed.get("type") == "code_edit":
+                    action_type = "code_edit"
+                elif parsed.get("type") == "bash_command":
+                    action_type = "bash_command"
         except:
             pass
             
@@ -170,6 +173,21 @@ async def confirm_task(task_id: str, db: Session = Depends(get_db)):
         else:
             task.status = TaskStatus.ERROR
             task.result += f"\n\n**STATUS: GAGAL DIEKSEKUSI**\nError SSH: {res.get('data') or res.get('error')}"
+            
+    elif action_type == "bash_command":
+        from ssh_tools import run_remote_command
+        res = run_remote_command(task.target_db, task.proposed_query)
+        
+        if res.get("success"):
+            task.status = TaskStatus.DONE
+            task.result += f"\n\n**STATUS: DISETUJUI & DIEKSEKUSI**\nOutput:\n```text\n{res['data']}\n```"
+        else:
+            task.status = TaskStatus.ERROR
+            task.result += f"\n\n**STATUS: GAGAL DIEKSEKUSI**\nError: {res.get('data') or res.get('error')}"
+            
+        db.commit()
+        return {"message": "Tindakan berhasil dieksekusi", "success": res.get("success", False)}
+        
     else:
         # Lakukan Backup CSV terlebih dahulu (Hanya untuk Database)
         if task.affected_rows_json:

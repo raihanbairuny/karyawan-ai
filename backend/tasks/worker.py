@@ -96,7 +96,7 @@ def execute_agent_task(self, task_id: str):
         Output HARUS selalu berupa JSON murni dengan skema:
         {{
             "thought": "Analisa Anda (wajib diisi)",
-            "action": "Pilih salah satu: reply | execute_sql | propose_write | get_server_logs | read_remote_file | propose_code_edit | delegate_task",
+            "action": "Pilih salah satu: reply | execute_sql | propose_write | get_server_logs | read_remote_file | propose_code_edit | run_remote_command | search_web | delegate_task",
             
             // Parameter khusus Database (isi jika pakai alat DB):
             "target_db": "timesheet" atau "datahandling" atau null,
@@ -108,6 +108,10 @@ def execute_agent_task(self, task_id: str):
             "lines": 50, // Jumlah baris log untuk get_server_logs
             "filepath": "Path relatif file untuk read_remote_file & propose_code_edit",
             "new_code": "Kode penuh baru (pengganti) untuk propose_code_edit",
+            "command": "Perintah bash untuk dijalankan (hanya untuk run_remote_command)",
+            
+            // Parameter khusus Web Search (isi jika action = search_web):
+            "search_query": "Kata kunci pencarian internet",
             
             // Parameter khusus Kolaborasi (isi jika action = delegate_task):
             "target_agent": "Nama agen dari Daftar Rekan Kerja di atas",
@@ -292,6 +296,37 @@ def execute_agent_task(self, task_id: str):
                 task.result = f"AI mengusulkan perbaikan kode (Autocoding) pada aplikasi {app_id}, file `{filepath}`.\nAlasan: {ai_decision.get('thought')}"
                 break
                 
+            elif action == "run_remote_command":
+                app_id = ai_decision.get("app_id")
+                command = ai_decision.get("command")
+                
+                if not app_id or not command:
+                    task.result = "AI gagal menyertakan parameter lengkap untuk run_remote_command."
+                    task.status = TaskStatus.ERROR
+                    break
+                    
+                # Setup bash_command format di proposed_query
+                task.proposed_query = command
+                task.target_db = app_id
+                task.affected_rows_json = json.dumps({"type": "bash_command", "command": command})
+                
+                task.status = TaskStatus.NEEDS_DECISION
+                task.result = f"⚠️ AI mengusulkan untuk mengeksekusi perintah Bash di VPS (`{app_id}`):\n```bash\n{command}\n```\nAlasan: {ai_decision.get('thought')}"
+                break
+                
+            elif action == "search_web":
+                search_query = ai_decision.get("search_query")
+                try:
+                    from tools.web_tools import search_web
+                    res = search_web(search_query)
+                    output = res.get('data') if res.get('success') else f"Gagal mencari di web: {res.get('error')}"
+                except ImportError:
+                    output = "Web tools belum terinstall. Mohon update backend."
+                except Exception as e:
+                    output = f"Error web search: {e}"
+                    
+                conversation_history += f"\n\nSystem: Hasil pencarian web untuk '{search_query}':\n{output}"
+                
             elif action == "delegate_task":
                 target_agent = ai_decision.get("target_agent")
                 delegate_prompt = ai_decision.get("delegate_prompt")
@@ -362,6 +397,19 @@ def execute_agent_task(self, task_id: str):
         ))
         db.commit()
 
+        # Kirim notifikasi WA/Telegram jika task selesai atau butuh keputusan
+        try:
+            from notifications import send_notification
+            agent_name = str(task.employee_name).capitalize()
+            if task.status == TaskStatus.DONE:
+                msg = task.result[:1000] if task.result else "(Tanpa pesan)"
+                send_notification(f"Tugas Selesai dari {agent_name}", f"{msg}")
+            elif task.status == TaskStatus.NEEDS_DECISION:
+                msg = task.result[:1000] if task.result else "(Butuh konfirmasi)"
+                send_notification(f"Butuh Persetujuan dari {agent_name} ⚠️", f"{msg}\n\nMohon cek Dashboard untuk Approve/Reject.")
+        except Exception as e:
+            print(f"Gagal mengirim notifikasi: {e}")
+
         return {"task_id": task_id, "status": task.status}
 
     except Exception as e:
@@ -389,11 +437,63 @@ def execute_agent_task(self, task_id: str):
                     detail=f"Error: {str(e)[:200]}",
                 ))
                 db.commit()
+                
+                try:
+                    from notifications import send_notification
+                    agent_name = str(task.employee_name).capitalize()
+                    send_notification(f"Tugas Gagal: {agent_name} ❌", f"{str(e)[:500]}")
+                except Exception as ne:
+                    print(f"Gagal mengirim notifikasi error: {ne}")
         except Exception:
             db.rollback()
 
         # Retry jika masih bisa
         raise self.retry(exc=e)
 
+    finally:
+        db.close()
+
+@celery_app.task
+def check_cron_jobs():
+    """
+    Menjalankan AI Cron Jobs setiap menit.
+    """
+    from croniter import croniter
+    from models import CronJob, Task, TaskStatus
+    
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        jobs = db.query(CronJob).filter(CronJob.is_active == True).all()
+        
+        for job in jobs:
+            base_time = job.last_run if job.last_run else job.created_at
+            cron = croniter(job.cron_expression, base_time)
+            next_run = cron.get_next(datetime)
+            
+            # Ensure next_run is timezone aware
+            if next_run.tzinfo is None:
+                next_run = next_run.replace(tzinfo=timezone.utc)
+                
+            if now >= next_run:
+                # Waktunya jalan
+                new_task = Task(
+                    employee_name=job.employee_name,
+                    prompt=f"[CRON JOB] {job.prompt}",
+                    status=TaskStatus.PENDING,
+                )
+                db.add(new_task)
+                job.last_run = now
+                
+                db.commit()
+                db.refresh(new_task)
+                
+                # Trigger worker
+                execute_agent_task.delay(new_task.id)
+                print(f"Triggered cron job {job.id} for {job.employee_name}")
+                
+    except Exception as e:
+        print(f"Error checking cron jobs: {e}")
+        db.rollback()
     finally:
         db.close()

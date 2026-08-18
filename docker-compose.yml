@@ -45,7 +45,7 @@ services:
   celery_worker:
     build: ./backend
     container_name: karyawan_celery
-    command: celery -A celery_app worker --loglevel=info --concurrency=2 -Q default,arif,budi,citra,dewi,eka,fajar,gita,hana,indra
+    command: celery -A celery_app worker --beat --loglevel=info --concurrency=2 -Q default,arif,budi,citra,dewi,eka,fajar,gita,hana,indra
     volumes:
       - ./backend:/app
       - ~/.ssh:/root/.ssh:ro

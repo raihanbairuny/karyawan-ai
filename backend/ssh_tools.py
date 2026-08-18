@@ -172,3 +172,28 @@ echo "Hotfix branch $BRANCH_NAME created and pushed successfully."
 """
     ok, out = run_ssh_command(ip, port, bash_script)
     return {"success": ok, "data": out if ok else out}
+
+def run_remote_command(app_id: str, command: str) -> dict:
+    """
+    Mengeksekusi perintah bash arbitrary di VPS host pada direktori aplikasi.
+    Sangat berbahaya, harus digunakan dengan hati-hati.
+    """
+    config = APP_CONFIGS.get(app_id)
+    if not config:
+        return {"success": False, "error": f"App ID {app_id} tidak ditemukan."}
+
+    ip = config.get("ip")
+    port = config.get("port")
+    base_path = config.get("path")
+    
+    if not base_path:
+        return {"success": False, "error": "Konfigurasi path tidak ditemukan"}
+
+    # Execute safely inside the app directory
+    bash_script = f"""
+    cd {base_path} || exit 1
+    {command}
+    """
+    
+    ok, out = run_ssh_command(ip, port, bash_script)
+    return {"success": ok, "data": out if ok else out}
