@@ -431,6 +431,7 @@ def execute_agent_task(self, task_id: str):
                     employee.current_task_id = None
 
                 # Log: error
+                from models import ActivityLog # Explicit import to prevent UnboundLocalError
                 db.add(ActivityLog(
                     employee_name=task.employee_name,
                     action="error",
